@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>El juego de la vida; Carlos Escribano González</title>
+		<meta charset="UTF-8">
+		<style>
+			#lienzo{
+				margin-left: 12px;
+				margin-top: 12px;
+				background-color: #E1E1E1;
+			}
+			
+			#info{
+				padding-left: 100px;
+				font-size: 20px;
+			}
+			
+			#personalizar{
+				margin-top: 20px;
+				font-size: 20px;
+				margin-left: 215px;
+			}
+			
+			button{
+				margin-left: 75px;
+				font-size: 20px;
+			}
+			
+			footer{
+				margin-top: 30px;
+			}
+			
+		</style>
+	</head>
+	
+	<body>
+		<canvas id = "lienzo" width = "700px" height = "700px"></canvas>
+		<p id = "info"> </p>
+		<button id = "play">Play</button>
+		<button id = "stop">Stop</button>
+		<button id = "clear">Clear</button>
+		<button id = "size">Set Size</button>
+		<br>
+		<button id = "personalizar">Personalizar célula</button>
+		<footer> Programa realizado por Carlos Escribano González; DNI: 71820553V; 03/12/2022</footer>	
+		<footer> Imagen de la célula obtenida de <a href = "https://www.flaticon.es/" target = "_blank">Flaticon</a>.</footer>
+		<script src = "Script.js"></script>
+	</body>
+
+</html>
