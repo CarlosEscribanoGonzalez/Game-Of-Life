@@ -1,41 +1,41 @@
-var lienzo = document.getElementById("lienzo"); //Lienzo
-var contexto = lienzo.getContext("2d");
-var info = document.getElementById("info"); //Párrafo de información
-var play = document.getElementById("play"); //Botón de play
-var stop = document.getElementById("stop"); //Botón de stop 
-var clear = document.getElementById("clear"); //Botón de clear
-var size = document.getElementById("size"); //Botón de cambiar tamaño
-var person = document.getElementById("personalizar"); //Botón de personalizar célula
-var infoX = 0; //Índice X de la célula bajo el ratón
-var infoY = 0; //Índice Y de la célula bajo el ratón
+var canvas = document.getElementById("canvas"); //canvas
+var context = canvas.getContext("2d");
+var info = document.getElementById("info"); //Info paragraph
+var play = document.getElementById("play"); //Play button
+var stop = document.getElementById("stop"); //Stop button
+var clear = document.getElementById("clear"); //Clear button
+var size = document.getElementById("size"); //Set size button
+var custom = document.getElementById("customize"); //Customize cell button
+var infoX = 0; //X index of the hovered cell
+var infoY = 0; //Y index of the hovered cell
 
-var x = 0; //Posición de X para comenzar a pintar las células
-var y = 0; //Posición de Y para comenzar a pintar las células
-var t; //Tamaño de cada célula (lienzo / número de filas)
-var interval; //Timer por intervalos
-var world; //Mundo
-var canClick = true; //Booleano para que no se le pueda dar más de una vez al botón de Play de seguido
+var x = 0; //Drawing start pos (x)
+var y = 0; //Drawing start pos (y)
+var t; //Cell size (canvas / row number)
+var interval; //Timer
+var world;
+var canClick = true; //So buttons can't be pressed multiple consecutive times
 
-var foto = new Image();
-foto.src = 'https://cdn-icons-png.flaticon.com/512/1083/1083617.png'; //Imagen de la célula
-var refresh; //Temporizador que soluciona algunos bugs más adelante
+var cellImage = new Image();
+cellImage.src = 'https://cdn-icons-png.flaticon.com/512/1083/1083617.png';
+var refresh;
 
-///////////////// CLASES: /////////////////
+///////////////// CLASSES /////////////////
 
-function World(longitud) //Clase mundo
+function World(length)
 {
-	this.totalPasos = 0; //El número total de pasos de la simulación
-	this.numCel = longitud; //Número de filas (correspondiente al número de columnas)
-	this.matrix = new Array(this.numCel); //Matriz del mundo (de momento unidimensional)
+	this.totalSteps = 0; //Simulation's total steps
+	this.numCel = length; //Row and column number
+	this.matrix = new Array(this.numCel); //World matrix
 	this.createWorld = function()
 	{
-		t = 700/this.numCel; //Obtenemos el tamaño de cada célula dependiendo del número de células del mundo
+		t = 700/this.numCel;
 		for(var i = 0; i < this.numCel; i++) 
 		{	
-			this.matrix[i] = new Array(this.numCel); //Al hacer un array de arrays se obtiene un array bidimensional
+			this.matrix[i] = new Array(this.numCel); //Two-dimensional array
 		}
 		
-		//Se crean y pintan todas las células (muertas en un principio principio):
+		//All cells are created
 		for(var i = 0; i < this.numCel; i++)
 		{
 			for(var j = 0; j < this.numCel; j++)
@@ -48,124 +48,97 @@ function World(longitud) //Clase mundo
 			y = y + t;
 		}
 		
-		añadirVecinas(); //Se añade a cada célula el array de 8 células vecinas
+		fillNeighbors(); //Neighbors are assigned to each cell of the grid
 	};
 }
 
-function Cell() //Clase célula
+function Cell()
 {
 	this.posX = x;
 	this.posY = y;
-	this.estado = "muerta";
-	this.vecinas = new Array(8); //Array de células colindantes
-	this.tiempo = 0; //Tiempo que lleva la célula en su estado actual
-	this.vecinasVivas = 0; //Número de células vecinas vivas
+	this.state = "dead";
+	this.neighbors = new Array(8); //Array of adjacent cells
+	this.time = 0; //Time the cell has stayed in the same state
+	this.aliveNeighbors = 0; //Number of adjacent cells alive
 	
 	this.paintCell = function()
 	{
-		contexto.clearRect(this.posX, this.posY, t, t);
-		if(this.estado === "muerta") //Si la célula está viva estará rellena. Si está muerta estará vacía
+		context.clearRect(this.posX, this.posY, t, t);
+		if(this.state === "dead")
 		{
-			contexto.strokeRect(this.posX, this.posY, t, t);
+			context.strokeRect(this.posX, this.posY, t, t);
 		} 
 		else
 		{
-			contexto.drawImage(foto, this.posX, this.posY, t, t);
+			context.drawImage(cellImage, this.posX, this.posY, t, t);
 		}
 	};
 	
-	this.checkVecinas = function() //Función que comprueba cuántas células vecinas están vivas
+	this.checkNeighbors = function() //Checks how many neighbors are alive
 	{
-		this.vecinasVivas = 0;
+		this.aliveNeighbors = 0;
 		for(var i = 0; i < 8; i++)
 		{
-			if(this.vecinas[i].estado === "viva") this.vecinasVivas++;
+			if(this.neighbors[i].state === "alive") this.aliveNeighbors++;
 		}
 	};
 	
-	this.updateCell = function() //Función que cambia el estado de la célula dependiendo del número de células vecinas vivas.
+	this.updateCell = function() //Updates cell's state depending on aliveNeighbors
 	{
-		if((this.estado === "muerta" && this.vecinasVivas === 3) || (this.estado === "viva" && (this.vecinasVivas < 2 || this.vecinasVivas > 3)))
+		if((this.state === "dead" && this.aliveNeighbors === 3) || (this.state === "alive" && (this.aliveNeighbors < 2 || this.aliveNeighbors > 3)))
 		{
-			cambiaEstado(this);
+			changeState(this);
 		}
 	};
 }
 
 
-///////////////// MANEJO DE EVENTOS: /////////////////
+///////////////// EVENT HANDLING /////////////////
 
-window.onload = function() //Creación automática del mundo
+window.onload = function() //World creation
 {
 	initializeWorld();
 }
 
-lienzo.onclick = function(e) //Función para añadir/quitar células con el ratón
+canvas.onclick = function(e) //So cells can be added/removed
 {
-	//Se obtienen los índices de la célula correspondiente a la zona del lienzo clicada:
 	var indexX = (e.pageX - 20 - ((e.pageX - 20) % t)) / t; 
 	var indexY = (e.pageY - 20 - ((e.pageY - 20) % t)) / t;
-	//Se necesita el valor 20 para ajustar pageX y pageY al punto de origen del lienzo. 
-	//De lo contrario, no tomaría en cuenta que el lienzo no comienza en el punto (0,0), calculando mal el click.
-	cambiaEstado(world.matrix[indexY][indexX]); //Cambia el estado de la matriz clicada
+	changeState(world.matrix[indexY][indexX]);
 }
 
-lienzo.onmousemove = function(e) //Almacenamiento de los índices de la célula bajo el ratón
+canvas.onmousemove = function(e) //Stores the indices of the hovered cell
 {
 	infoX = (e.pageX - 20 - ((e.pageX - 20) % t)) / t; 
 	infoY = (e.pageY - 20 - ((e.pageY - 20) % t)) / t;
 }
 
-function output() //Salida por pantalla de la información de la célula debajo del cursor
+function output() //Displays information of the hovered cell
 {
-	info.innerHTML = "Ratón sobre la célula (" + infoY + ", " + infoX + "). Estado de la célula: " + world.matrix[infoY][infoX].estado + "." + 
-						"<br>La célula lleva " + world.matrix[infoY][infoX].estado + " " + world.matrix[infoY][infoX].tiempo + " pasos." +
-						"<br>Número total de pasos de la simulación: " + world.totalPasos + ".";
+	info.innerHTML = "Cursor is over cell (" + infoY + ", " + infoX + "); whose state is: " + world.matrix[infoY][infoX].state + "." + 
+						"<br>This cell has been " + world.matrix[infoY][infoX].state + " " + world.matrix[infoY][infoX].time + " steps." +
+						"<br>Simulation's total steps: " + world.totalSteps + ".";
 }
 
 
-///////////////// BOTONES: /////////////////
+///////////////// BUTTONS /////////////////
 
-play.onclick = function() //Comienzo de la simulación al pulsar el botón de play
+play.onclick = function() 
 {
-	if(canClick) //Este booleano evita bugs al pulsar el botón de play en repetidas ocasiones
+	if(canClick) //To avoid bugs when the button is pressed multiple consecutive times
 	{
 		interval = setInterval(timer, 100);
 		canClick = false;
 	}
 }
 
-function timer() //Función que actualiza las células en función del tiempo
-{
-	for(var i = 0; i < world.numCel; i++)
-	{
-		for(var j = 0; j < world.numCel; j++)
-		{
-			world.matrix[i][j].tiempo++;
-			world.matrix[i][j].checkVecinas();					
-		}	
-	}
-	
-	for(var i = 0; i < world.numCel; i++)
-	{
-		for(var j = 0; j < world.numCel; j++)
-		{
-			
-			world.matrix[i][j].updateCell();				
-		}	
-	}
-	//Los dos dobles bucles for anteriores no se pueden juntar en uno solo. De lo contrario, la actualización de cada célula según se registran
-	//sus células vecinas cambiaría la actualización de las células posteriores del array bidimensional, provocando fallos en la simulación
-	world.totalPasos++;
-}
-
-stop.onclick = function() //Función que para la simulación
+stop.onclick = function() //Stops simulation
 {
 	clearInterval(interval);
 	canClick = true;
 }
 
-clear.onclick = function() //Función que resetea el mundo
+clear.onclick = function() //Resets the world
 {
 	x = 0;
 	y = 0;
@@ -175,19 +148,52 @@ clear.onclick = function() //Función que resetea el mundo
 	world.createWorld();
 }
 
-size.onclick = function() //Función para volver a definir el tamaño de la matriz
+size.onclick = function() //Redefines grid's size
 {
 	initializeWorld();
 }
 
-person.onclick = function() //Función que personaliza la imagen de las células
+custom.onclick = function()
 {
-	var pic = prompt("Introduzca el link de la foto que desee: ");
-	foto.src = pic;
-	refresh = setInterval(paint, 10);
+	var pic = prompt("Please, enter the link to the desired image.");
+	if (pic === null || pic.trim() === "") return;
+	pic = pic.trim();
+	var testImage = new Image();
+	testImage.onload = function () {
+		cellImage.src = pic;
+		clearInterval(refresh);
+		refresh = setInterval(paint, 10);
+	};
+	testImage.onerror = function () {
+		alert("The link is not a valid image.");
+	};
+	testImage.src = pic;
 }
 
-function paint() //Función que pinta las células tras haber sido personalizadas
+///////////////// FUNCTIONS /////////////////
+
+function timer() //Updates cells
+{
+	for(var i = 0; i < world.numCel; i++)
+	{
+		for(var j = 0; j < world.numCel; j++)
+		{
+			world.matrix[i][j].time++;
+			world.matrix[i][j].checkNeighbors();					
+		}	
+	}
+	for(var i = 0; i < world.numCel; i++)
+	{
+		for(var j = 0; j < world.numCel; j++)
+		{
+			
+			world.matrix[i][j].updateCell();				
+		}	
+	}
+	world.totalSteps++;
+}
+
+function paint() //Paints the grid of cells after cellImage has changed
 {
 	for(var i = 0; i < world.numCel; i++)
 	{
@@ -199,157 +205,154 @@ function paint() //Función que pinta las células tras haber sido personalizada
 	clearInterval(refresh);
 }
 
-///////////////// FUNCIONES AUXILIARES: /////////////////
-
-function initializeWorld() //Función que inicializa el mundo
+function initializeWorld() //Initializes the world
 {
 	x = 0;
 	y = 0;
-	var longitud = setSize(); //El usuario puede introducir el número de filas deseado
-	world = new World(longitud);
+	var length = setSize();
+	world = new World(length);
 	world.createWorld();
-	setInterval(output, 10); //Temporizador para actualizar el párrafo de información de la célula bajo el ratón
-	clearInterval(interval); //Se pausan los temporizadores por si se ha pulsado el botón de Set Size
+	setInterval(output, 10);
+	clearInterval(interval);
 	canClick = true;
 }
 
-function setSize() //Función para que el usuario elija el tamaño de la matriz
+function setSize() 
 {
 	do
 	{
-		var longitud = prompt("Introduzca el número de filas deseado: ");
+		var length = prompt("Please, enter the desired world size: ");
 			
-		if(isNaN(longitud)) //Si no es un número
+		if(isNaN(length))
 		{
-			alert("El valor a introducir debe ser un número entero.");
+			alert("The value must be a valid number.");
 		} 
 		else 
 		{
-			longitud = parseInt(longitud); //Si el número introducido es decimal no funciona. Hay que hacer un parseInt()
+			length = parseInt(length);
 		}
-	} while(isNaN(longitud));
-	return longitud;
+	} while(isNaN(length));
+	return length;
 }
 		
-function cambiaEstado(cell) //Función que cambia el estado de una célula, la vuelve a pintar y resetea su temporizador
+function changeState(cell)
 {
-	if(cell.estado === "muerta")
+	if(cell.state === "dead")
 	{
-		cell.estado = "viva";
+		cell.state = "alive";
 	}
-	else if(cell.estado === "viva")
+	else if(cell.state === "alive")
 	{
-		cell.estado = "muerta";
+		cell.state = "dead";
 	}
-	cell.tiempo = 0;
+	cell.time = 0;
 	cell.paintCell();
 }
 	
-function añadirVecinas() //Función que añade a cada célula el array de células vecinas correspondiente
+function fillNeighbors()
 {
-	//Se le asigna a cada célula sus células vecinas:
 	for(var i = 0; i < world.numCel; i++)
 	{
 		for(var j = 0; j < world.numCel; j++)
 		{
-			if(i != 0 && j != 0 && i != (world.numCel - 1) && j != (world.numCel - 1)) //Células centrales, que no están en los extremos
+			if(i != 0 && j != 0 && i != (world.numCel - 1) && j != (world.numCel - 1)) //Cells in the center
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[i-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].vecinas[3] = world.matrix[i][j-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[i][j+1];
-				world.matrix[i][j].vecinas[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[i+1][j];
-				world.matrix[i][j].vecinas[7] = world.matrix[i+1][j+1];
+				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
+				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
+				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
+				world.matrix[i][j].neighbors[7] = world.matrix[i+1][j+1];
 			}
-			else if(i === 0 && j != 0 && j != (world.numCel-1)) //Células de la pared superior (menos esquinas)
+			else if(i === 0 && j != 0 && j != (world.numCel-1)) //Upper edge cells
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[world.numCel-1][j-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[world.numCel-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[world.numCel-1][j+1];
-				world.matrix[i][j].vecinas[3] = world.matrix[i][j-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[i][j+1];
-				world.matrix[i][j].vecinas[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[i+1][j];
-				world.matrix[i][j].vecinas[7] = world.matrix[i+1][j+1];
+				world.matrix[i][j].neighbors[0] = world.matrix[world.numCel-1][j-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[world.numCel-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[world.numCel-1][j+1];
+				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
+				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
+				world.matrix[i][j].neighbors[7] = world.matrix[i+1][j+1];
 			}
-			else if(j === 0 && i != 0 && i != (world.numCel - 1)) //Células de la pared izquierda (menos esquinas)
+			else if(j === 0 && i != 0 && i != (world.numCel - 1)) //Left edge cells
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[i-1][world.numCel - 1];
-				world.matrix[i][j].vecinas[1] = world.matrix[i-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].vecinas[3] = world.matrix[i][world.numCel-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[i][j+1];
-				world.matrix[i][j].vecinas[5] = world.matrix[i+1][world.numCel-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[i+1][j];
-				world.matrix[i][j].vecinas[7] = world.matrix[i+1][j+1];
+				world.matrix[i][j].neighbors[0] = world.matrix[i-1][world.numCel - 1];
+				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
+				world.matrix[i][j].neighbors[3] = world.matrix[i][world.numCel-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
+				world.matrix[i][j].neighbors[5] = world.matrix[i+1][world.numCel-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
+				world.matrix[i][j].neighbors[7] = world.matrix[i+1][j+1];
 			}
-			else if(i === (world.numCel - 1) && j != 0 && j != (world.numCel - 1)) //Células de la pared inferior (menos esquinas)
+			else if(i === (world.numCel - 1) && j != 0 && j != (world.numCel - 1)) //Bottom edge cells
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[i-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].vecinas[3] = world.matrix[i][j-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[i][j+1];
-				world.matrix[i][j].vecinas[5] = world.matrix[0][j-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[0][j];
-				world.matrix[i][j].vecinas[7] = world.matrix[0][j+1];
+				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
+				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
+				world.matrix[i][j].neighbors[5] = world.matrix[0][j-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[0][j];
+				world.matrix[i][j].neighbors[7] = world.matrix[0][j+1];
 			}
-			else if(j === (world.numCel - 1) && i != 0 && i != (world.numCel - 1)) //Células de la pared derecha (menos esquinas)
+			else if(j === (world.numCel - 1) && i != 0 && i != (world.numCel - 1)) //Right edge cells
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[i-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[i-1][0];
-				world.matrix[i][j].vecinas[3] = world.matrix[i][j-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[i][0];
-				world.matrix[i][j].vecinas[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[i+1][j];
-				world.matrix[i][j].vecinas[7] = world.matrix[i+1][0];
+				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[i-1][0];
+				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[i][0];
+				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
+				world.matrix[i][j].neighbors[7] = world.matrix[i+1][0];
 			}
-			else if(i === 0 && j === 0) //Esquina superior izquierda
+			else if(i === 0 && j === 0) //Upper-left corner
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[world.numCel-1][world.numCel-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[world.numCel-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[world.numCel-1][j+1];
-				world.matrix[i][j].vecinas[3] = world.matrix[i][world.numCel-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[i][1];
-				world.matrix[i][j].vecinas[5] = world.matrix[1][world.numCel-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[1][0];
-				world.matrix[i][j].vecinas[7] = world.matrix[1][1];
+				world.matrix[i][j].neighbors[0] = world.matrix[world.numCel-1][world.numCel-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[world.numCel-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[world.numCel-1][j+1];
+				world.matrix[i][j].neighbors[3] = world.matrix[i][world.numCel-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[i][1];
+				world.matrix[i][j].neighbors[5] = world.matrix[1][world.numCel-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[1][0];
+				world.matrix[i][j].neighbors[7] = world.matrix[1][1];
 			}
-			else if(i === 0 && j === world.numCel-1) //Esquina superior derecha
+			else if(i === 0 && j === world.numCel-1) //Upper-right corner
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[world.numCel-1][j-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[world.numCel-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[world.numCel-1][0];
-				world.matrix[i][j].vecinas[3] = world.matrix[0][j-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[0][0];
-				world.matrix[i][j].vecinas[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[i+1][j];
-				world.matrix[i][j].vecinas[7] = world.matrix[1][0];
+				world.matrix[i][j].neighbors[0] = world.matrix[world.numCel-1][j-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[world.numCel-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[world.numCel-1][0];
+				world.matrix[i][j].neighbors[3] = world.matrix[0][j-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[0][0];
+				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
+				world.matrix[i][j].neighbors[7] = world.matrix[1][0];
 			}
-			else if(j === 0 && i === world.numCel-1) //Esquina inferior izquierda 
+			else if(j === 0 && i === world.numCel-1) //Bottom-left corner
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[i-1][world.numCel-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[i-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].vecinas[3] = world.matrix[world.numCel-1][world.numCel-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[i][j+1];
-				world.matrix[i][j].vecinas[5] = world.matrix[0][world.numCel-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[0][0];
-				world.matrix[i][j].vecinas[7] = world.matrix[0][1];
+				world.matrix[i][j].neighbors[0] = world.matrix[i-1][world.numCel-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
+				world.matrix[i][j].neighbors[3] = world.matrix[world.numCel-1][world.numCel-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
+				world.matrix[i][j].neighbors[5] = world.matrix[0][world.numCel-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[0][0];
+				world.matrix[i][j].neighbors[7] = world.matrix[0][1];
 			}
-			else if(i === world.numCel-1 && j === world.numCel-1) //Esquina inferior derecha
+			else if(i === world.numCel-1 && j === world.numCel-1) //Bottom-right corner
 			{
-				world.matrix[i][j].vecinas[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].vecinas[1] = world.matrix[i-1][j];
-				world.matrix[i][j].vecinas[2] = world.matrix[i-1][0];
-				world.matrix[i][j].vecinas[3] = world.matrix[i][j-1];
-				world.matrix[i][j].vecinas[4] = world.matrix[world.numCel-1][0];
-				world.matrix[i][j].vecinas[5] = world.matrix[0][j-1];
-				world.matrix[i][j].vecinas[6] = world.matrix[0][j];
-				world.matrix[i][j].vecinas[7] = world.matrix[0][0];
+				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
+				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
+				world.matrix[i][j].neighbors[2] = world.matrix[i-1][0];
+				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
+				world.matrix[i][j].neighbors[4] = world.matrix[world.numCel-1][0];
+				world.matrix[i][j].neighbors[5] = world.matrix[0][j-1];
+				world.matrix[i][j].neighbors[6] = world.matrix[0][j];
+				world.matrix[i][j].neighbors[7] = world.matrix[0][0];
 			}
 		}	
 	}

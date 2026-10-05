@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>El juego de la vida; Carlos Escribano González</title>
+		<title>Game of Life</title>
 		<meta charset="UTF-8">
 		<style>
-			#lienzo{
+			#canvas{
 				margin-left: 12px;
 				margin-top: 12px;
 				background-color: #E1E1E1;
@@ -34,16 +34,15 @@
 	</head>
 	
 	<body>
-		<canvas id = "lienzo" width = "700px" height = "700px"></canvas>
+		<canvas id = "canvas" width = "700px" height = "700px"></canvas>
 		<p id = "info"> </p>
 		<button id = "play">Play</button>
 		<button id = "stop">Stop</button>
 		<button id = "clear">Clear</button>
-		<button id = "size">Set Size</button>
-		<br>
-		<button id = "personalizar">Personalizar célula</button>
-		<footer> Programa realizado por Carlos Escribano González; DNI: 71820553V; 03/12/2022</footer>	
-		<footer> Imagen de la célula obtenida de <a href = "https://www.flaticon.es/" target = "_blank">Flaticon</a>.</footer>
+		<button id = "size">Set world size</button>
+		<br><br>
+		<button id = "customize">Customize cell</button>
+		<footer> Cell image obtained from <a href = "https://www.flaticon.es/" target = "_blank">Flaticon</a>.</footer>
 		<script src = "Script.js"></script>
 	</body>
 
