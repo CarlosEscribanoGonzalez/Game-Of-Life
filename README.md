@@ -1,20 +1,31 @@
-# Game of Life
+## Overview
+Interactive implementation of John Conway's **Game of Life** in JavaScript, drawn on an HTML canvas. The world is a square grid of cells that live or die in each step according to the number of living neighbors they have.
 
-This is my custom version of **John Conway's Game of Life**, developed in **JavaScript** as part of an assignment for the course **Fundamentals of Technology** during my second year of university. 
+## Features
 
-### About the Project
+* Configurable world size, chosen when the page loads or at any time with the size button
+* Toroidal world: the edges wrap around, so cells on one side are neighbors of the cells on the opposite side
+* Click on any cell to bring it to life or kill it, before or during the simulation
+* Play, stop and clear controls
+* Live information about the cell under the cursor: its position, its state, how many steps it has been in that state and the total steps of the simulation
+* Customizable cell appearance: living cells can be drawn with any image, loaded from a link that is validated before being applied
+<p align = "center">
+  <img width="500" height="500" alt="gameOfLife" src="https://github.com/user-attachments/assets/7c8b0fe7-6243-4716-94ad-dce735c5f1cc" />
+</p>
 
-The objective of this project was to create a game using only **JavaScript** with minimal **HTML**. This experience allowed me to deepen my understanding of JavaScript and explore the basics of game mechanics through Conway's famous cellular automaton.
+## Rules
 
-### Features
-- Implemented entirely in JavaScript.
-- Minimal use of HTML.
-- Simulation of Conway's "Game of Life" with custom logic and rules.
+* A living cell with fewer than 2 or more than 3 living neighbors dies
+* A dead cell with exactly 3 living neighbors comes to life
+* Every other cell keeps its state
 
-### Technologies
-- **JavaScript**
-- **HTML** (minimal usage)
+## Technologies
 
----
+* JavaScript
+* HTML5 Canvas
 
-Feel free to explore the code and check out my other projects on [GitHub](https://github.com/).
+## Usage
+
+* Open `index.html` in a browser <!-- fill in: file name -->
+* Enter the size of the world when prompted
+* Click on cells to create an initial pattern and press play
