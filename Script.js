@@ -9,10 +9,10 @@ var custom = document.getElementById("customize"); //Customize cell button
 var infoX = 0; //X index of the hovered cell
 var infoY = 0; //Y index of the hovered cell
 
-var x = 0; //Drawing start pos (x)
-var y = 0; //Drawing start pos (y)
-var t; //Cell size (canvas / row number)
+var cellW;
+var cellH;
 var interval; //Timer
+var outputInterval;
 var world;
 var canClick = true; //So buttons can't be pressed multiple consecutive times
 
@@ -22,58 +22,55 @@ var refresh;
 
 ///////////////// CLASSES /////////////////
 
-function World(length)
+function World(rows, cols)
 {
 	this.totalSteps = 0; //Simulation's total steps
-	this.numCel = length; //Row and column number
-	this.matrix = new Array(this.numCel); //World matrix
+	this.numRows = rows;
+	this.numCols = cols;
+	this.matrix = new Array(this.numRows); //World matrix
 	this.createWorld = function()
 	{
-		t = 700/this.numCel;
-		for(var i = 0; i < this.numCel; i++) 
-		{	
-			this.matrix[i] = new Array(this.numCel); //Two-dimensional array
-		}
-		
+		cellW = canvas.width / this.numCols;
+		cellH = canvas.height / this.numRows;
+		context.clearRect(0, 0, canvas.width, canvas.height);
+
 		//All cells are created
-		for(var i = 0; i < this.numCel; i++)
+		for(var i = 0; i < this.numRows; i++)
 		{
-			for(var j = 0; j < this.numCel; j++)
+			this.matrix[i] = new Array(this.numCols); //Two-dimensional array
+			for(var j = 0; j < this.numCols; j++)
 			{
-				this.matrix[i][j] = new Cell();
+				this.matrix[i][j] = new Cell(j * cellW, i * cellH);
 				this.matrix[i][j].paintCell();
-				x = x + t;
-			}	
-			x = 0;
-			y = y + t;
+			}
 		}
-		
+
 		fillNeighbors(); //Neighbors are assigned to each cell of the grid
 	};
 }
 
-function Cell()
+function Cell(posX, posY)
 {
-	this.posX = x;
-	this.posY = y;
+	this.posX = posX;
+	this.posY = posY;
 	this.state = "dead";
 	this.neighbors = new Array(8); //Array of adjacent cells
 	this.time = 0; //Time the cell has stayed in the same state
 	this.aliveNeighbors = 0; //Number of adjacent cells alive
-	
+
 	this.paintCell = function()
 	{
-		context.clearRect(this.posX, this.posY, t, t);
+		context.clearRect(this.posX, this.posY, cellW, cellH);
 		if(this.state === "dead")
 		{
-			context.strokeRect(this.posX, this.posY, t, t);
-		} 
+			context.strokeRect(this.posX, this.posY, cellW, cellH);
+		}
 		else
 		{
-			context.drawImage(cellImage, this.posX, this.posY, t, t);
+			context.drawImage(cellImage, this.posX, this.posY, cellW, cellH);
 		}
 	};
-	
+
 	this.checkNeighbors = function() //Checks how many neighbors are alive
 	{
 		this.aliveNeighbors = 0;
@@ -82,7 +79,7 @@ function Cell()
 			if(this.neighbors[i].state === "alive") this.aliveNeighbors++;
 		}
 	};
-	
+
 	this.updateCell = function() //Updates cell's state depending on aliveNeighbors
 	{
 		if((this.state === "dead" && this.aliveNeighbors === 3) || (this.state === "alive" && (this.aliveNeighbors < 2 || this.aliveNeighbors > 3)))
@@ -100,30 +97,44 @@ window.onload = function() //World creation
 	initializeWorld();
 }
 
+function getCellIndices(e)
+{
+	var rect = canvas.getBoundingClientRect();
+	var scaleX = canvas.width / rect.width;
+	var scaleY = canvas.height / rect.height;
+	var col = Math.floor((e.clientX - rect.left) * scaleX / cellW);
+	var row = Math.floor((e.clientY - rect.top) * scaleY / cellH);
+	col = Math.max(0, Math.min(world.numCols - 1, col));
+	row = Math.max(0, Math.min(world.numRows - 1, row));
+	return { row: row, col: col };
+}
+
 canvas.onclick = function(e) //So cells can be added/removed
 {
-	var indexX = (e.pageX - 20 - ((e.pageX - 20) % t)) / t; 
-	var indexY = (e.pageY - 20 - ((e.pageY - 20) % t)) / t;
-	changeState(world.matrix[indexY][indexX]);
+	var idx = getCellIndices(e);
+	changeState(world.matrix[idx.row][idx.col]);
 }
 
 canvas.onmousemove = function(e) //Stores the indices of the hovered cell
 {
-	infoX = (e.pageX - 20 - ((e.pageX - 20) % t)) / t; 
-	infoY = (e.pageY - 20 - ((e.pageY - 20) % t)) / t;
+	var idx = getCellIndices(e);
+	infoY = idx.row;
+	infoX = idx.col;
 }
 
 function output() //Displays information of the hovered cell
 {
-	info.innerHTML = "Cursor is over cell (" + infoY + ", " + infoX + "); whose state is: " + world.matrix[infoY][infoX].state + "." + 
-						"<br>This cell has been " + world.matrix[infoY][infoX].state + " " + world.matrix[infoY][infoX].time + " steps." +
+	var cell = world.matrix[infoY] && world.matrix[infoY][infoX];
+	if(!cell) return;
+	info.innerHTML = "Cursor is over cell (" + infoY + ", " + infoX + "); whose state is: " + cell.state + "." +
+						"<br>This cell has been " + cell.state + " " + cell.time + " steps." +
 						"<br>Simulation's total steps: " + world.totalSteps + ".";
 }
 
 
 ///////////////// BUTTONS /////////////////
 
-play.onclick = function() 
+play.onclick = function()
 {
 	if(canClick) //To avoid bugs when the button is pressed multiple consecutive times
 	{
@@ -140,11 +151,9 @@ stop.onclick = function() //Stops simulation
 
 clear.onclick = function() //Resets the world
 {
-	x = 0;
-	y = 0;
 	clearInterval(interval);
 	canClick = true;
-	world = new World(world.numCel);
+	world = new World(world.numRows, world.numCols);
 	world.createWorld();
 }
 
@@ -174,30 +183,29 @@ custom.onclick = function()
 
 function timer() //Updates cells
 {
-	for(var i = 0; i < world.numCel; i++)
+	for(var i = 0; i < world.numRows; i++)
 	{
-		for(var j = 0; j < world.numCel; j++)
+		for(var j = 0; j < world.numCols; j++)
 		{
 			world.matrix[i][j].time++;
-			world.matrix[i][j].checkNeighbors();					
-		}	
+			world.matrix[i][j].checkNeighbors();
+		}
 	}
-	for(var i = 0; i < world.numCel; i++)
+	for(var i = 0; i < world.numRows; i++)
 	{
-		for(var j = 0; j < world.numCel; j++)
+		for(var j = 0; j < world.numCols; j++)
 		{
-			
-			world.matrix[i][j].updateCell();				
-		}	
+			world.matrix[i][j].updateCell();
+		}
 	}
 	world.totalSteps++;
 }
 
 function paint() //Paints the grid of cells after cellImage has changed
 {
-	for(var i = 0; i < world.numCel; i++)
+	for(var i = 0; i < world.numRows; i++)
 	{
-		for(var j = 0; j < world.numCel; j++)
+		for(var j = 0; j < world.numCols; j++)
 		{
 			world.matrix[i][j].paintCell();
 		}
@@ -207,153 +215,61 @@ function paint() //Paints the grid of cells after cellImage has changed
 
 function initializeWorld() //Initializes the world
 {
-	x = 0;
-	y = 0;
-	var length = setSize();
-	world = new World(length);
+	var dims = setSize();
+	world = new World(dims.rows, dims.cols);
 	world.createWorld();
-	setInterval(output, 10);
+	clearInterval(outputInterval);
+	outputInterval = setInterval(output, 10);
 	clearInterval(interval);
 	canClick = true;
 }
 
-function setSize() 
+function askPositiveInt(message)
 {
+	var value;
 	do
 	{
-		var length = prompt("Please, enter the desired world size: ");
-			
-		if(isNaN(length))
+		value = parseInt(prompt(message));
+		if(isNaN(value) || value < 1)
 		{
-			alert("The value must be a valid number.");
-		} 
-		else 
-		{
-			length = parseInt(length);
+			alert("The value must be a valid number greater than 0.");
+			value = NaN;
 		}
-	} while(isNaN(length));
-	return length;
+	} while(isNaN(value));
+	return value;
 }
-		
+
+function setSize()
+{
+	var rows = askPositiveInt("Please, enter the number of rows (height): ");
+	var cols = askPositiveInt("Please, enter the number of columns (width): ");
+	return { rows: rows, cols: cols };
+}
+
 function changeState(cell)
 {
-	if(cell.state === "dead")
-	{
-		cell.state = "alive";
-	}
-	else if(cell.state === "alive")
-	{
-		cell.state = "dead";
-	}
+	cell.state = (cell.state === "dead") ? "alive" : "dead";
 	cell.time = 0;
 	cell.paintCell();
 }
-	
+
 function fillNeighbors()
 {
-	for(var i = 0; i < world.numCel; i++)
+	var R = world.numRows;
+	var C = world.numCols;
+	for(var i = 0; i < R; i++)
 	{
-		for(var j = 0; j < world.numCel; j++)
+		for(var j = 0; j < C; j++)
 		{
-			if(i != 0 && j != 0 && i != (world.numCel - 1) && j != (world.numCel - 1)) //Cells in the center
+			var n = 0;
+			for(var di = -1; di <= 1; di++)
 			{
-				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
-				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
-				world.matrix[i][j].neighbors[7] = world.matrix[i+1][j+1];
+				for(var dj = -1; dj <= 1; dj++)
+				{
+					if(di === 0 && dj === 0) continue;
+					world.matrix[i][j].neighbors[n++] = world.matrix[(i + di + R) % R][(j + dj + C) % C];
+				}
 			}
-			else if(i === 0 && j != 0 && j != (world.numCel-1)) //Upper edge cells
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[world.numCel-1][j-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[world.numCel-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[world.numCel-1][j+1];
-				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
-				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
-				world.matrix[i][j].neighbors[7] = world.matrix[i+1][j+1];
-			}
-			else if(j === 0 && i != 0 && i != (world.numCel - 1)) //Left edge cells
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[i-1][world.numCel - 1];
-				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].neighbors[3] = world.matrix[i][world.numCel-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
-				world.matrix[i][j].neighbors[5] = world.matrix[i+1][world.numCel-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
-				world.matrix[i][j].neighbors[7] = world.matrix[i+1][j+1];
-			}
-			else if(i === (world.numCel - 1) && j != 0 && j != (world.numCel - 1)) //Bottom edge cells
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
-				world.matrix[i][j].neighbors[5] = world.matrix[0][j-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[0][j];
-				world.matrix[i][j].neighbors[7] = world.matrix[0][j+1];
-			}
-			else if(j === (world.numCel - 1) && i != 0 && i != (world.numCel - 1)) //Right edge cells
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[i-1][0];
-				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[i][0];
-				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
-				world.matrix[i][j].neighbors[7] = world.matrix[i+1][0];
-			}
-			else if(i === 0 && j === 0) //Upper-left corner
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[world.numCel-1][world.numCel-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[world.numCel-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[world.numCel-1][j+1];
-				world.matrix[i][j].neighbors[3] = world.matrix[i][world.numCel-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[i][1];
-				world.matrix[i][j].neighbors[5] = world.matrix[1][world.numCel-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[1][0];
-				world.matrix[i][j].neighbors[7] = world.matrix[1][1];
-			}
-			else if(i === 0 && j === world.numCel-1) //Upper-right corner
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[world.numCel-1][j-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[world.numCel-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[world.numCel-1][0];
-				world.matrix[i][j].neighbors[3] = world.matrix[0][j-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[0][0];
-				world.matrix[i][j].neighbors[5] = world.matrix[i+1][j-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[i+1][j];
-				world.matrix[i][j].neighbors[7] = world.matrix[1][0];
-			}
-			else if(j === 0 && i === world.numCel-1) //Bottom-left corner
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[i-1][world.numCel-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[i-1][j+1];
-				world.matrix[i][j].neighbors[3] = world.matrix[world.numCel-1][world.numCel-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[i][j+1];
-				world.matrix[i][j].neighbors[5] = world.matrix[0][world.numCel-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[0][0];
-				world.matrix[i][j].neighbors[7] = world.matrix[0][1];
-			}
-			else if(i === world.numCel-1 && j === world.numCel-1) //Bottom-right corner
-			{
-				world.matrix[i][j].neighbors[0] = world.matrix[i-1][j-1];
-				world.matrix[i][j].neighbors[1] = world.matrix[i-1][j];
-				world.matrix[i][j].neighbors[2] = world.matrix[i-1][0];
-				world.matrix[i][j].neighbors[3] = world.matrix[i][j-1];
-				world.matrix[i][j].neighbors[4] = world.matrix[world.numCel-1][0];
-				world.matrix[i][j].neighbors[5] = world.matrix[0][j-1];
-				world.matrix[i][j].neighbors[6] = world.matrix[0][j];
-				world.matrix[i][j].neighbors[7] = world.matrix[0][0];
-			}
-		}	
+		}
 	}
 }
